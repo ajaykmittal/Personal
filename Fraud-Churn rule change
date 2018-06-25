@@ -1,0 +1,72 @@
+SELECT
+b.month_id,
+(b.churn_amount * 200.0000)/(b.beginning_balance+b.ending_balance) AS revenue_churn
+FROM (
+	SELECT
+	a.*,
+	max(beginning_balance) over(ORDER BY month_id ROWS BETWEEN 1 FOLLOWING AND 1 following) AS ending_balance
+	FROM (
+		SELECT 
+			month_id, 
+			sum(CASE WHEN churn_status = 'CURR MONTH CANCELLED - CHURN' THEN Amount ELSE 0 end) AS churn_amount,
+			sum(CASE WHEN churn_status = 'BEGINNING ACTIVE' THEN Amount ELSE 0 end) AS beginning_balance
+		FROM EDW.MICROSTRATEGY.V_BI_VBC_REVENUE_CHURN
+		WHERE --FRAUD_FLAG = 0
+			DISCONNECT_REASON1<>'Internal'
+			AND DISCONNECT_REASON2 <> 'Abuse'
+		GROUP BY 1
+	) a
+) b
+
+
+
+SELECT DISCONNECT_REASON2 FROM EDW.MICROSTRATEGY.V_BI_VBC_REVENUE_CHURN
+GROUP BY 1
+
+CREATE OR REPLACE view edw_dev.SANDBOX_AMITTAL.VBC_CHURN_ANALYSIS as
+SELECT 
+month_id, 
+account_number, 
+CASE WHEN LOGO_SEATS < 3 THEN '1: Seats 1-2'
+WHEN LOGO_SEATS < 6 THEN '2: Seats 3-5'
+WHEN LOGO_SEATS < 11 THEN '3: Seats 6-10'
+ELSE '4: Seats > 10'END seat_chort, 
+ACCOUNT_TENURE_CATEG AS tenure_cohort,
+LOGO_MRR_BUCKETS AS mrr_cohort--,
+--count(DISTINCT account_number) accounts
+FROM EDW.MICROSTRATEGY.V_BI_VBC_REVENUE_CHURN
+WHERE --FRAUD_FLAG = 0
+			DISCONNECT_REASON1='Internal'
+			AND DISCONNECT_REASON2 = 'Abuse'
+			--AND month_id = 201805
+			AND churn_status = 'CURR MONTH CANCELLED - CHURN'
+			GROUP BY 1,2,3,4,5
+	
+			GRANT SELECT ON ALL VIEWS in SCHEMA EDW_DEV.SANDBOX_AMITTAL TO ROLE AP_TABLEAU;
+			
+SELECT LOGO_MRR_BUCKETS FROM EDW.MICROSTRATEGY.V_BI_VBC_REVENUE_CHURN
+WHERE month_id = 201804
+GROUP BY 1
+
+CREATE OR REPLACE VIEW EDW_DEV.SANDBOX_AMITTAL.VBC_USAGE_REVIEW as
+SELECT a12.MNTH_ID (NAMED MNTH_ID ),
+	a11.account_id as account_number,
+	a11.FL_IN_NETWORK,
+	a11.CALL_DIRECTION,
+	a11.FL_INTERNATIONAL,
+    MAXIMUM ( a13.MNTH_DESC_LONG ) (NAMED longdsc ),
+    SUM ( CAST( ( (EXTRACT ( DAY
+    FROM ( ( a11.DT_END - a11.DT_START DAY( 4 )  TO SECOND  ) ))(TITLE 'Day')) * 86400  ) + ( (EXTRACT ( HOUR
+    FROM ( a11.DT_END - a11.DT_START DAY( 4 )  TO SECOND  ) )(TITLE 'Hour')) * 3600  ) + ( (EXTRACT ( MINUTE
+    FROM ( a11.DT_END - a11.DT_START DAY( 4 )  TO SECOND  ) )(TITLE 'Minute')) * 60  ) + ( (EXTRACT ( SECOND
+    FROM ( a11.DT_END - a11.DT_START DAY( 4 )  TO SECOND  ) )(TITLE 'Second'))  )  AS DEC ( 18 , 0 )  ) / 60 ) (NAMED BILLEDMOUS ),
+        COUNT ( DISTINCT a11.call_id ) (NAMED CALLS )
+    FROM VBSBIVM.V_VBS_HD_RAW_USAGE a11 
+    	JOIN DISCOVERYBIVM.CAL_DY a12 
+    		ON ( a11.DT_END_TRUNC = a12.DY_DT ) 
+    	JOIN DISCOVERYBIVM.CAL_MNTH a13 
+    		ON ( a12.MNTH_ID = a13.MNTH_ID )
+    WHERE ( a11.ACCOUNT_ID in ( 51992 ,202725)
+    	AND a11.DT_END_TRUNC BETWEEN DATE'2017-12-01' AND DATE'2018-06-30' 
+    	AND a11.DISPOSITION IN ( 'Answered' , 'Voicemail' , 'Forwarded' ) )
+    GROUP by 1,2,3,4,5;
