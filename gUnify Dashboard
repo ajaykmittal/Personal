@@ -1,0 +1,87 @@
+-- created for Bryan Stokes
+CREATE OR REPLACE VIEW EDW_DEV.SANDBOX_AMITTAL.ENT_gUNIFY_ACCTS_summary as
+SELECT MONTH_ID, count(DISTINCT account_number) AS count_of_accounts
+FROM EDW_DEV.SANDBOX_AMITTAL.ENT_gUNIFY_ACCTS
+GROUP BY 1
+ORDER BY 1;
+
+
+CREATE OR REPLACE VIEW EDW_DEV.SANDBOX_AMITTAL.ENT_gUNIFY_product_summary AS
+SELECT MONTH_ID, product_name, sum(PRODUCT_COUNT) quantity
+FROM EDW_DEV.SANDBOX_AMITTAL.ENT_gUNIFY_ACCTS
+GROUP BY 1,2;
+
+
+CREATE OR REPLACE VIEW EDW_DEV.SANDBOX_AMITTAL.ENT_gUNIFY_ACCTS as
+SELECT
+	month_id,
+	account_number,
+	PACKAGE_NAME AS product_name,
+	PRODUCT_QUANTITY AS PRODUCT_COUNT
+FROM EDW.MICROSTRATEGY.V_BI_PRM_SERVICE_MRR 
+WHERE PACKAGE_NAME IN (
+'gUnify BullHorn Connector',
+'gUnify Chrome Connector w/ Google Apps',
+'gUnify Clio Connector',
+'gUnify Conference Call Connector',
+'gUnify Connector',
+'gUnify Connector 5',
+'gunify Connector for NetSuite',
+'gUnify Connector for Salesforce',
+'gUnify Connector to Salesforce 10',
+'gUnify Connector w/ Simple Audio Conferencing',
+'gUnify Connector_IC',
+'gUnify ConnectWise Connector',
+'gUnify Desk.com Connector',
+'gUnify Google Apps Connector',
+'gUnify JobDiva Connector',
+'gUnify Microsoft Dynamics Connector',
+'gUnify NetSuite Connector',
+'gUnify Office 365 Connector',
+'gUnify Salesforce Connector',
+'gUnify salesforce.com Chrome Connector',
+'gUnify Zendesk Connector',
+'gUnify Zoho Connector',
+'Ingenius Connector Enterprise for Salesforce',
+'Premium Seat w/gUnify Connector',
+'Premium Seat w/gUnify Connector Activation: Premium Seat w/gUnify Connector',
+'Salesforce Connector',
+'SFDC Connector',
+'Vonage for Salesforce',
+'VonageConnect - Go Integrator - Rental',
+'WH: gUnify Connector (gmail and chrome support)',
+'WH: gUnify Connector w/ SimpleMeetup Audio Conferencing',
+'WH: gUnify Salesforce.com Chrome Connector')
+
+
+
+CREATE OR REPLACE VIEW EDW_DEV.SANDBOX_AMITTAL.ENT_gUNIFY_ACCTS_revenue as
+SELECT 
+month_id,
+sum(mrr) AS revenue
+FROM EDW.MICROSTRATEGY.V_BI_PRM_SERVICE_MRR mrr
+WHERE (month_id,account_number) IN (SELECT DISTINCT month_id, account_number FROM EDW_DEV.SANDBOX_AMITTAL.ENT_gUNIFY_ACCTS)
+GROUP BY 1
+ORDER BY 1
+
+
+CREATE OR REPLACE VIEW EDW_DEV.SANDBOX_AMITTAL.VBC_gUNIFY_ACCTS_churn AS
+SELECT 
+month_id,
+(churn_amount * 200.00)/(beginning_balance+ending_balance) AS churn_percent
+FROM (
+	SELECT 
+	raw.month_id,
+	raw.churn_amount,
+	raw.beginning_balance,
+	max(raw.beginning_balance) over(ORDER BY month_id ROWS BETWEEN 1 FOLLOWING AND 1 following) AS ending_balance
+	FROM (
+		SELECT 
+			month_id,
+			sum(CASE WHEN CHURN_STATUS = 'CURR MONTH CANCELLED - CHURN' THEN AMOUNT ELSE 0 END) AS churn_amount,
+			sum(CASE WHEN CHURN_STATUS = 'BEGINNING ACTIVE' THEN AMOUNT ELSE 0 END) AS beginning_balance
+		FROM EDW.MICROSTRATEGY.V_BI_VBC_REVENUE_CHURN churn
+		WHERE (month_id,account_number) IN (SELECT DISTINCT month_id, account_number FROM EDW_DEV.SANDBOX_AMITTAL.VBC_gUNIFY_ACCTS)
+		GROUP BY 1) raw
+	)raw2
+ORDER BY 1;
