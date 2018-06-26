@@ -1,0 +1,8 @@
+	SELECT p.NAME AS product_name, prp.NAME AS rate_plan_name, prpc.NAME AS charge_name, prpc.CHARGE_TYPE AS charge_type, prpc.accounting_code,  SUBSTRING(prpc.accounting_code,5,5) AS gl_code
+	from EDW.BASEDW.VBS_ZO_PROD_RT_PLN_CHARGE prpc
+	JOIN EDW.BASEDW.VBS_ZO_PROD_RT_PLN prp
+		ON prpc.PRODUCT_RATE_PLAN_ID = prp.id
+	JOIN EDW.BASEDW.VBS_ZO_PRODUCT p
+		ON prp.PRODUCT_ID = p.id
+	WHERE prp.LINE_OF_BUSINESS_C IS NULL or prp.LINE_OF_BUSINESS_C='Essentials'
+	GROUP BY 1,2,3,4,5,6
