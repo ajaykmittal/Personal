@@ -1,0 +1,11 @@
+SELECT p.NAME AS package_name, 
+s.NAME AS service_name, sgl.service_id, gl."NAME" AS gl_code
+	FROM EDW.BASEDW.PRM_EN_GENERAL_LEDGER gl
+		JOIN EDW.BASEDW.PRM_EN_SVC_ATTR_GL sgl
+	    		ON gl.ID = sgl.GENERAL_LEDGER_ID
+	  JOIN EDW.BASEDW.PRM_EN_SERVICE s
+	    ON s.id = sgl.SERVICE_ID
+	  LEFT JOIN EDW.BASEDW.PRM_EN_PACKAGE_SERVICE ps
+	    		ON ps.service_id = s.ID
+	   LEFT JOIN EDW.BASEDW.PRM_EN_PACKAGE P
+	    	ON p.id = ps.package_id
