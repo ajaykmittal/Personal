@@ -1,0 +1,28 @@
+-- created for Ethan Douglas (EDW-4688)
+CREATE OR REPLACE VIEW EDW_DEV.SANDBOX_AMITTAL.ACCOUNT_PRICE_CHANGE AS
+SELECT 
+	V_A.account_number, 
+	V_A.account_name, 
+	coalesce(T_ASSC.ASSC_FNM || ' ' || T_ASSC.ASSC_LNM, 'NA') AS CSA_AGENT_NAME,
+	'NA' AS begining_MRR,
+	sum(CASE WHEN current_date = order_data.order_create_date THEN order_data.order_amount ELSE 0 END) AS Yesterday_MRR_change,
+	sum(CASE WHEN order_data.order_create_date > date_trunc(MONTH, current_date) THEN order_data.order_amount ELSE 0 END) AS MTD_MRR_change,
+	'NA'AS MTD_percent_change
+FROM EDW_DEV.SANDBOX_AMITTAL.BI_ACCOUNT V_A
+	LEFT JOIN EDW.DMART.ASSC T_ASSC
+		ON V_A.SEC_OWNR_ASSC_ID =  T_ASSC.ASSC_ID
+			AND T_ASSC.CURR_REC_IND = 'Y'
+	LEFT JOIN (SELECT cast(T_O.ORDR_CRTD_DTTM AS date) Order_create_date, T_O.ACCT_ID AS ACCT_ID, sum(t_O.ORDR_AMT) AS Order_amount
+		FROM EDW.DMART.ORDR T_O
+			JOIN EDW.DMART.PROD T_P
+				ON T_O.PROD_ID = T_P.PROD_ID
+					AND T_O.ORDR_CRTD_DTTM between T_P.PROD_STRT_DTTM AND coalesce(T_P.PROD_END_DTTM, CURRENT_TIMESTAMP)
+					AND T_P.PROD_FMLY NOT ilike '%Fee%'
+					AND T_P.PROD_CHRG_MDL NOT ilike '%Discount%'
+					AND T_P.PROD_CHRG_TYP = 'Recurring'
+		GROUP BY 1,2) order_data
+		ON V_A.ACCT_ID = order_data.ACCT_ID
+WHERE V_A.SEC_OWNR_ASSC_ID <> 0
+AND V_A.CURRENT_INDICATOR='Y'
+AND V_A.ACCOUNT_STATUS <> 'Cancelled'
+GROUP BY 1,2,3;
