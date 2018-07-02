@@ -12,13 +12,14 @@ CASE WHEN package_name = 'Call Queue' AND product_count<>0 THEN 'Yes' ELSE 'No' 
 CASE WHEN package_name = 'Call Monitoring' AND product_count<>0 THEN 'Yes' ELSE 'No' END AS call_monitoring,
 CASE WHEN package_name = 'Company Call Recording' AND product_count<>0 THEN 'Yes' ELSE 'No' END AS company_call_recording,
 CASE WHEN package_name = 'BMobile Unlimited Extension Service' AND product_count<>0 THEN 'Yes' ELSE 'No' END AS mobile_unlimited_extensions,
-CASE WHEN package_name = 'Business Number Inbox' AND product_count<>0 THEN 'Yes' ELSE 'No' END AS business_number_inbox
+CASE WHEN package_name = 'Business Number Inbox' AND product_count<>0 THEN 'Yes' ELSE 'No' END AS business_number_inbox,
+CASE WHEN coalesce(c.num_virtual_reception,0) <> 0 THEN 'Yes' ELSE 'No' END AS virtual_reception,
+CASE WHEN coalesce(c.num_monitor_whisper_barge,0) <> 0 THEN 'Yes' ELSE 'No' END AS monitor_whisper_barge
 FROM EDW.MICROSTRATEGY.V_BI_VBC_SERVICE_MRR a
 	-- mrr
-	JOIN (SELECT account_number, sum(mrr) AS total_mrr FROM EDW.MICROSTRATEGY.V_BI_VBC_SERVICE_MRR WHERE month_id =201806 GROUP BY 1
-	HAVING sum(mrr) > 100) b
+	JOIN (SELECT account_number, sum(mrr) AS total_mrr FROM EDW.MICROSTRATEGY.V_BI_VBC_SERVICE_MRR WHERE month_id =201806 GROUP BY 1 HAVING sum(mrr) > 100) b
 		ON a.account_number = b.account_number
-	LEFT JOIN (SELECT account_number, industry FROM EDW.MICROSTRATEGY.V_BI_VBC_ACCT_PROFILE WHERE month_id =201806) c
+	LEFT JOIN (SELECT account_number, industry, num_virtual_reception, num_monitor_whisper_barge FROM EDW.MICROSTRATEGY.V_BI_VBC_ACCT_PROFILE WHERE month_id =201807) c
 		ON a.account_number = c.account_number
 WHERE a.month_id = 201807 
 AND a.logo_seats BETWEEN 10 AND 99
