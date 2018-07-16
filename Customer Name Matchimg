@@ -1,0 +1,31 @@
+SELECT replace(ACCT_NM 
+--|| ' ' || ADDRESS1  || ' ' || CITY || ' ' || PROVINCE_NAME || ' ' || ZIPCODE
+, ',', ' ') AS account_name, 'VBC' AS system_name 
+FROM edw.dmart.acct a
+	LEFT JOIN EDW.BASEDW.VBS_HD_ACCOUNT_DATA ha
+		ON a.acct_num = ha.account_id
+WHERE CURR_REC_IND = 'Y' 
+	AND acct_stat = 'Active' 
+	AND trim(acct_nm) IS NOT NULL 
+	AND acct_nm NOT ilike 'ZZ%'
+	AND acct_nm NOT ilike 'yy%'
+	AND acct_nm ilike '%envy%'
+
+
+SELECT regexp_replace(coalesce(PARENT_ACCOUNT_NAME, ACCOUNT_NAME) 
+--|| ' ' || BILLING_ADDRESS_STREET || ' ' || BILLING_ADDRESS_CITY || ' ' || BILLING_ADDRESS_STATE || ' ' || BILLING_ADDRESS_POSTALCODE
+, 
+	'\\,|\\:', ' ') AS account_name, 'Enterprise' AS system_name
+FROM EDW.DMART.VBS_PRM_ACCT a
+	LEFT JOIN EDW.BASEDW.TLS_SG_ACCOUNTS_CSTM sac
+		ON sac.ACCOUNT_ID = a.ACCOUNT_NUMBER
+	LEFT JOIN EDW.BASEDW.TLS_SG_ACCOUNTS sa
+		ON sa.id = sac.id
+WHERE user_status = 'ACTIVE' AND coalesce(PARENT_ACCOUNT_NAME, ACCOUNT_NAME) ilike '%envy%'
+GROUP BY 1
+
+
+
+regexp_replace('Customers - (NY)','\\(|\\)','')
+SELECT * FROM EDW.DMART.VBS_PRM_ACCT
+--AND acct_nm iLIKE '%massage%envy%'
