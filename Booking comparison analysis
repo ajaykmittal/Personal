@@ -1,0 +1,29 @@
+-- new
+SELECT ROUTE_TO_MARKET,account_number, sum(GROSS_BOOKING_AMOUNT) debooking_booking
+FROM  EDW.TABLEAU.BI_BOOKING
+WHERE BOOKING_DATE BETWEEN '2018-01-01' AND '2018-06-30'
+and booking_type ilike 'de-booking'
+AND account_tenure <= 0
+GROUP BY 1,2
+
+SELECT ROUTE_TO_MARKET,account_number, sum(GROSS_BOOKING_AMOUNT) debooking_booking
+FROM  EDW.TABLEAU.BI_BOOKING
+WHERE BOOKING_DATE BETWEEN '2018-01-01' AND '2018-06-30'
+and booking_type ilike 'de-booking'
+AND account_tenure BETWEEN 1 and 120
+GROUP BY 1,2
+
+
+SELECT ROUTE_TO_MARKET,account_number, sum(GROSS_BOOKING_AMOUNT) debooking_booking
+FROM  EDW.TABLEAU.BI_BOOKING
+WHERE BOOKING_DATE BETWEEN '2018-01-01' AND '2018-06-30'
+AND order_type ilike 'Add-on'
+AND account_tenure > 120
+GROUP BY 1,2
+
+SELECT account_number FROM EDW.MICROSTRATEGY.V_BI_VBC_BOOKING
+WHERE booking_type ilike 'CANCELLED BOOKING'
+OR booking_type ilike 'SUSPENDED BOOKING'
+OR booking_type ilike 'debooked'
+GROUP BY 1
+ORDER BY 1
