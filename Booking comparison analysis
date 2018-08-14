@@ -37,3 +37,59 @@ and booking_type ilike 'booking'--'de-booking'
 AND account_tenure BETWEEN 91 and 120
 GROUP BY 1,2,3
 HAVING debooking_booking > 0
+
+
+
+CREATE OR REPLACE VIEW EDW_DEV.TABLEAU.BOOKING_VALIDATION AS 
+SELECT
+	old_logic.booking_month,
+	old_logic.route_to_market,
+	old_logic.booking_amount AS old_amount,
+	new_logic.booking_amount AS new_amount
+FROM (
+--old booking
+SELECT 
+	date_trunc('Month', bkng.booking_date) AS booking_month, 
+	--CASE WHEN booking_tenure <= 90
+	CASE WHEN (booking_tenure <= 90 AND ((agent_lob IN ('Unknown', 'VBS - Care', 'VBS - Inbound ISR', 'VBS - Inbound SDR', 'Sales Inbound', 'Sales Training', 'VBS - Inbound SR') OR  agent_lob IS NULL)
+		OR (agent_lob ilike '%Outbound%' AND coalesce(CAMPAIGN_BUCKET, 'NA') NOT ilike 'Telemarketing'))) THEN 'Direct Inbound'
+		WHEN (booking_tenure <= 90 AND ((agent_lob ilike '%Outbound%' AND coalesce(CAMPAIGN_BUCKET, 'NA') ilike 'Telemarketing'
+			AND CAMPAIGN_NAME NOT ilike '%TLC%'
+			AND CAMPAIGN_NAME NOT ilike '%CVG%'
+			AND CAMPAIGN_NAME NOT ilike '%CNX%')
+			OR (agent_lob ilike '%Outbound%' AND CAMPAIGN_NAME IS null))) THEN 'Outbound (Internal)'
+		WHEN (booking_tenure <= 90 AND (agent_lob ilike '%Outbound%' AND coalesce(CAMPAIGN_BUCKET, 'NA') ilike 'Telemarketing'
+			AND (CAMPAIGN_NAME  ilike '%TLC%'
+			or CAMPAIGN_NAME NOT ilike '%CVG%'
+			or CAMPAIGN_NAME NOT ilike '%CNX%'))) THEN 'Outbound (Outsourced)'
+		WHEN (booking_tenure <= 90 AND agent_lob ilike '%Enterprise%') THEN 'Enterprise'
+		WHEN (booking_tenure <= 90 AND agent_lob ilike '%Field%') THEN 'Mid-Market'	
+		WHEN (booking_tenure <= 90 AND agent_lob ilike '%Indirect%') THEN 'Channel'
+		WHEN (booking_tenure > 90 AND (agent_lob ilike '%CSA%' OR SECONDARY_AGENT_NAME IS NOT NULL)) THEN 'Client Services'
+		WHEN (booking_tenure > 90 AND ((agent_lob IN ('Unknown', 'VBS - Care', 'VBS - Inbound ISR', 'VBS - Inbound SDR', 'Sales Inbound', 'Sales Training', 'VBS - Inbound SR') OR  agent_lob IS NULL)
+			OR (agent_lob ilike '%Outbound%' AND coalesce(CAMPAIGN_BUCKET, 'NA') NOT ilike 'Telemarketing'))) THEN 'Direct Inbound'
+		ELSE 'Unknown' END AS ROUTE_TO_MARKET,
+--	account_number
+--	CASE WHEN booking_tenure <= 90 THEN t_rte.route_to_market ELSE t_rte.alt_RTM END AS route_to_market,
+--	booking_type,
+	sum(BOOKING_AMOUNT) booking_amount
+FROM EDW.MICROSTRATEGY.V_BI_VBC_BOOKING bkng
+WHERE CHARGE_TYPE ilike 'Recurring'
+AND booking_date BETWEEN '2018-01-01' AND '2018-06-30'
+GROUP BY 1,2) old_logic
+JOIN (
+--new booking
+SELECT 
+	date_trunc('Month', booking_date) AS booking_month, 
+--	account_number,
+	ROUTE_TO_MARKET,
+--	booking_type,
+	sum(GROSS_BOOKING_AMOUNT) booking_amount
+FROM EDW.TABLEAU.BI_BOOKING
+WHERE booking_date BETWEEN '2018-01-01' AND '2018-06-30'
+GROUP BY 1,2) New_logic
+ON old_logic.booking_month = new_logic.booking_month
+	AND old_logic.route_to_market = new_logic.route_to_market
+--GROUP BY 1,2
+order BY 1,2
+
